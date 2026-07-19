@@ -1,0 +1,132 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  ICAA Voting API
+
+Parameters:
+  architecture:
+    Description: Architecture to run on
+    Type: String
+    Default: x86_64
+    AllowedValues:
+      - arm64
+      - x86_64
+
+Mappings:
+  attributes:
+    dynamo:
+      tableName: voting-api
+
+Globals:
+  Function:
+    Timeout: 10
+    MemorySize: 128
+    Environment:
+      Variables:
+        DYNAMO_TABLE_NAME: !FindInMap [attributes, dynamo, tableName]
+        OTEL_EXPORTER_OTLP_ENDPOINT: ""
+
+Resources:
+  VotingHttpApi:
+    Type: AWS::Serverless::HttpApi
+
+  VotingApiMapping:
+    Type: AWS::ApiGatewayV2::ApiMapping
+    Properties:
+      DomainName: api.icaa.world
+      ApiId: !Ref VotingHttpApi
+      Stage: !Ref VotingHttpApi.Stage
+      ApiMappingKey: voting
+
+  ICAAVoting:
+    Type: AWS::Serverless::Function
+    Properties:
+      PackageType: Image
+      Architectures:
+        - !Ref architecture
+      Policies:
+        - Statement:
+          - Effect: Allow
+            Action:
+              - dynamodb:GetItem
+              - dynamodb:PutItem
+              - dynamodb:UpdateItem
+              - dynamodb:DeleteItem
+              - dynamodb:Query
+              - dynamodb:Scan
+            Resource:
+              - !Sub "arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/voting-api"
+              - !Sub "arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/voting-api/index/*"
+          - Effect: Allow
+            Action:
+              - dynamodb:TransactWriteItems
+            Resource:
+              - !Sub "arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/voting-api"
+          - Effect: Allow
+            Action:
+              - ssm:GetParameter
+              - ssm:GetParameters
+            Resource:
+              - !Sub "arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/cfTurnstileSecretKey"
+              - !Sub "arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/jwtSigningKeys"
+              - !Sub "arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/newrelic-license-key"
+      Events:
+        APIEvent:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref VotingHttpApi
+            Path: '/{proxy+}'
+            Method: ANY
+    Metadata:
+      DockerTag: v1
+      DockerContext: .
+      Dockerfile: Dockerfile
+
+  LogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub /aws/lambda/${ICAAVoting}
+      RetentionInDays: 30
+
+  VotingTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !FindInMap [attributes, dynamo, tableName]
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: PK
+          AttributeType: S
+        - AttributeName: SK
+          AttributeType: S
+        - AttributeName: GSI1PK
+          AttributeType: S
+        - AttributeName: GSI1SK
+          AttributeType: S
+      KeySchema:
+        - AttributeName: PK
+          KeyType: HASH
+        - AttributeName: SK
+          KeyType: RANGE
+      GlobalSecondaryIndexes:
+        - IndexName: GSI1
+          KeySchema:
+            - AttributeName: GSI1PK
+              KeyType: HASH
+            - AttributeName: GSI1SK
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
+      TimeToLiveSpecification:
+        AttributeName: TTL
+        Enabled: True
+
+Outputs:
+  VotingApiEndpoint:
+    Description: API Gateway endpoint URL for Voting API
+    Value: !Sub "https://${VotingHttpApi}.execute-api.${AWS::Region}.amazonaws.com/"
+  VotingTableName:
+    Description: Name of the DynamoDB table for Voting API
+    Value: !Ref VotingTable
+  VotingTableArn:
+    Description: ARN of the DynamoDB table for Voting API
+    Value: !GetAtt VotingTable.Arn
