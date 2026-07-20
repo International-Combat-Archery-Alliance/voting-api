@@ -283,7 +283,9 @@ func TestGetVotingV1PollsIdResults(t *testing.T) {
 		require.NoError(t, err)
 		r, ok := resp.(GetVotingV1PollsIdResults200JSONResponse)
 		require.True(t, ok)
-		assert.Equal(t, 5, r.TotalVotes)
+		assert.Equal(t, Full, r.Level)
+		require.NotNil(t, r.TotalVotes)
+		assert.Equal(t, 5, *r.TotalVotes)
 		require.Len(t, r.Results, 2)
 		for _, result := range r.Results {
 			assert.NotEqual(t, openapi_types.UUID(deletedOptionID), result.OptionId)
@@ -348,7 +350,8 @@ func TestGetVotingV1PollsIdResults(t *testing.T) {
 		require.NoError(t, err)
 		r, ok := resp.(GetVotingV1PollsIdResults200JSONResponse)
 		require.True(t, ok)
-		assert.Equal(t, 1, r.TotalVotes)
+		require.NotNil(t, r.TotalVotes)
+		assert.Equal(t, 1, *r.TotalVotes)
 	})
 
 	t.Run("after close results are hidden before the poll closes", func(t *testing.T) {
@@ -392,5 +395,126 @@ func TestGetVotingV1PollsIdResults(t *testing.T) {
 		require.NoError(t, err)
 		_, ok := resp.(GetVotingV1PollsIdResults200JSONResponse)
 		require.True(t, ok)
+	})
+
+	t.Run("percentage level returns percentages without total votes", func(t *testing.T) {
+		poll := newActiveDomainPoll()
+		poll.PublicResultsLevel = polls.PUBLIC_RESULTS_LEVEL_PERCENTAGES
+		mock := &mockDB{
+			GetPollFunc: func(ctx context.Context, id uuid.UUID) (polls.Poll, error) {
+				return poll, nil
+			},
+			GetResultsFunc: func(ctx context.Context, pollID uuid.UUID) (polls.Results, error) {
+				return polls.Results{
+					PollID:     pollID,
+					TotalVotes: 10,
+					Counts: map[uuid.UUID]int{
+						poll.Options[0].ID: 6,
+						poll.Options[1].ID: 4,
+					},
+				}, nil
+			},
+		}
+		api := NewAPI(mock, noopLogger, LOCAL, newTestTokenService(), &mockCaptchaValidator{}, func(context.Context) error { return nil })
+
+		resp, err := api.GetVotingV1PollsIdResults(context.Background(), GetVotingV1PollsIdResultsRequestObject{
+			Id: openapi_types.UUID(poll.ID),
+		})
+
+		require.NoError(t, err)
+		r, ok := resp.(GetVotingV1PollsIdResults200JSONResponse)
+		require.True(t, ok)
+		assert.Equal(t, Percentages, r.Level)
+		assert.Nil(t, r.TotalVotes)
+		require.Len(t, r.Results, 2)
+		assert.NotNil(t, r.Results[0].Percentage)
+		assert.Nil(t, r.Results[0].Count)
+		assert.Nil(t, r.Results[0].Rank)
+	})
+
+	t.Run("ranking level returns ranks", func(t *testing.T) {
+		poll := newActiveDomainPoll()
+		poll.PublicResultsLevel = polls.PUBLIC_RESULTS_LEVEL_RANKINGS
+		mock := &mockDB{
+			GetPollFunc: func(ctx context.Context, id uuid.UUID) (polls.Poll, error) {
+				return poll, nil
+			},
+			GetResultsFunc: func(ctx context.Context, pollID uuid.UUID) (polls.Results, error) {
+				return polls.Results{
+					PollID: pollID,
+					Counts: map[uuid.UUID]int{
+						poll.Options[0].ID: 3,
+						poll.Options[1].ID: 1,
+					},
+				}, nil
+			},
+		}
+		api := NewAPI(mock, noopLogger, LOCAL, newTestTokenService(), &mockCaptchaValidator{}, func(context.Context) error { return nil })
+
+		resp, err := api.GetVotingV1PollsIdResults(context.Background(), GetVotingV1PollsIdResultsRequestObject{
+			Id: openapi_types.UUID(poll.ID),
+		})
+
+		require.NoError(t, err)
+		r, ok := resp.(GetVotingV1PollsIdResults200JSONResponse)
+		require.True(t, ok)
+		assert.Equal(t, Rankings, r.Level)
+		assert.Nil(t, r.TotalVotes)
+		require.Len(t, r.Results, 2)
+		assert.NotNil(t, r.Results[0].Rank)
+		assert.Nil(t, r.Results[0].Count)
+		assert.Nil(t, r.Results[0].Percentage)
+	})
+
+	t.Run("none level returns 403 for public", func(t *testing.T) {
+		poll := newActiveDomainPoll()
+		poll.PublicResultsLevel = polls.PUBLIC_RESULTS_LEVEL_NONE
+		mock := &mockDB{
+			GetPollFunc: func(ctx context.Context, id uuid.UUID) (polls.Poll, error) {
+				return poll, nil
+			},
+		}
+		api := NewAPI(mock, noopLogger, LOCAL, newTestTokenService(), &mockCaptchaValidator{}, func(context.Context) error { return nil })
+
+		resp, err := api.GetVotingV1PollsIdResults(context.Background(), GetVotingV1PollsIdResultsRequestObject{
+			Id: openapi_types.UUID(poll.ID),
+		})
+
+		require.NoError(t, err)
+		r, ok := resp.(GetVotingV1PollsIdResults403JSONResponse)
+		require.True(t, ok)
+		assert.Equal(t, AuthError, r.Code)
+	})
+
+	t.Run("none level returns full results for admin", func(t *testing.T) {
+		poll := newActiveDomainPoll()
+		poll.PublicResultsLevel = polls.PUBLIC_RESULTS_LEVEL_NONE
+		mock := &mockDB{
+			GetPollFunc: func(ctx context.Context, id uuid.UUID) (polls.Poll, error) {
+				return poll, nil
+			},
+			GetResultsFunc: func(ctx context.Context, pollID uuid.UUID) (polls.Results, error) {
+				return polls.Results{
+					PollID:     pollID,
+					TotalVotes: 5,
+					Counts: map[uuid.UUID]int{
+						poll.Options[0].ID: 3,
+						poll.Options[1].ID: 2,
+					},
+				}, nil
+			},
+		}
+		api := NewAPI(mock, noopLogger, LOCAL, newTestTokenService(), &mockCaptchaValidator{}, func(context.Context) error { return nil })
+
+		resp, err := api.GetVotingV1PollsIdResults(adminCtx, GetVotingV1PollsIdResultsRequestObject{
+			Id: openapi_types.UUID(poll.ID),
+		})
+
+		require.NoError(t, err)
+		r, ok := resp.(GetVotingV1PollsIdResults200JSONResponse)
+		require.True(t, ok)
+		assert.Equal(t, Full, r.Level)
+		require.NotNil(t, r.TotalVotes)
+		assert.Equal(t, 5, *r.TotalVotes)
 	})
 }

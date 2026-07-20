@@ -23,6 +23,15 @@ const (
 	RESULTS_VISIBILITY_ADMIN_ONLY ResultsVisibility = "AdminOnly"
 )
 
+type PublicResultsLevel string
+
+const (
+	PUBLIC_RESULTS_LEVEL_FULL        PublicResultsLevel = "Full"
+	PUBLIC_RESULTS_LEVEL_PERCENTAGES PublicResultsLevel = "Percentages"
+	PUBLIC_RESULTS_LEVEL_RANKINGS    PublicResultsLevel = "Rankings"
+	PUBLIC_RESULTS_LEVEL_NONE        PublicResultsLevel = "None"
+)
+
 type Status string
 
 const (
@@ -32,16 +41,17 @@ const (
 )
 
 type Poll struct {
-	ID                uuid.UUID
-	Version           int
-	Name              string
-	Description       *string
-	StartTime         time.Time
-	EndTime           time.Time
-	ResultsVisibility ResultsVisibility
-	VoteConfig        VoteConfig
-	Groups            []Group
-	Options           []Option
+	ID                  uuid.UUID
+	Version             int
+	Name                string
+	Description         *string
+	StartTime           time.Time
+	EndTime             time.Time
+	ResultsVisibility   ResultsVisibility
+	PublicResultsLevel  PublicResultsLevel
+	VoteConfig          VoteConfig
+	Groups              []Group
+	Options             []Option
 }
 
 type VoteConfig struct {
@@ -113,6 +123,12 @@ func ValidatePoll(poll Poll) error {
 	case RESULTS_VISIBILITY_LIVE, RESULTS_VISIBILITY_AFTER_CLOSE, RESULTS_VISIBILITY_ADMIN_ONLY:
 	default:
 		return NewInvalidPollError("unknown results visibility")
+	}
+
+	switch poll.PublicResultsLevel {
+	case "", PUBLIC_RESULTS_LEVEL_FULL, PUBLIC_RESULTS_LEVEL_PERCENTAGES, PUBLIC_RESULTS_LEVEL_RANKINGS, PUBLIC_RESULTS_LEVEL_NONE:
+	default:
+		return NewInvalidPollError("unknown public results level")
 	}
 
 	if len(poll.Options) == 0 {

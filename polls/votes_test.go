@@ -100,3 +100,132 @@ func assertBallotError(t *testing.T, err error, reason ErrorReason) {
 	assert.ErrorAs(t, err, &pollsErr)
 	assert.Equal(t, reason, pollsErr.Reason)
 }
+
+func TestPercentages(t *testing.T) {
+	t.Run("percentages always sum to 100", func(t *testing.T) {
+		a, b, c := uuid.New(), uuid.New(), uuid.New()
+		results := Results{
+			TotalVotes: 7,
+			Counts: map[uuid.UUID]int{
+				a: 3,
+				b: 2,
+				c: 2,
+			},
+		}
+		pcts := results.Percentages()
+		assert.Equal(t, 3, len(pcts))
+		sum := 0
+		for _, p := range pcts {
+			sum += p
+		}
+		assert.Equal(t, 100, sum)
+	})
+
+	t.Run("clean 50/50 split", func(t *testing.T) {
+		a, b := uuid.New(), uuid.New()
+		results := Results{
+			TotalVotes: 10,
+			Counts: map[uuid.UUID]int{
+				a: 5,
+				b: 5,
+			},
+		}
+		pcts := results.Percentages()
+		assert.Equal(t, 50, pcts[a])
+		assert.Equal(t, 50, pcts[b])
+	})
+
+	t.Run("zero total votes gives all zeros", func(t *testing.T) {
+		a, b := uuid.New(), uuid.New()
+		results := Results{
+			TotalVotes: 0,
+			Counts: map[uuid.UUID]int{
+				a: 0,
+				b: 0,
+			},
+		}
+		pcts := results.Percentages()
+		assert.Equal(t, 0, pcts[a])
+		assert.Equal(t, 0, pcts[b])
+	})
+}
+
+func TestRankings(t *testing.T) {
+	t.Run("computes rankings with ties", func(t *testing.T) {
+		a, b, c, d := uuid.New(), uuid.New(), uuid.New(), uuid.New()
+		results := Results{
+			Counts: map[uuid.UUID]int{
+				a: 10,
+				b: 10,
+				c: 5,
+				d: 3,
+			},
+		}
+		ranks := results.Rankings()
+		assert.Equal(t, 1, ranks[a])
+		assert.Equal(t, 1, ranks[b])
+		assert.Equal(t, 3, ranks[c])
+		assert.Equal(t, 4, ranks[d])
+	})
+
+	t.Run("all zero counts gives all rank 1", func(t *testing.T) {
+		a, b := uuid.New(), uuid.New()
+		results := Results{
+			Counts: map[uuid.UUID]int{
+				a: 0,
+				b: 0,
+			},
+		}
+		ranks := results.Rankings()
+		assert.Equal(t, 1, ranks[a])
+		assert.Equal(t, 1, ranks[b])
+	})
+}
+
+func TestResultsFiltered(t *testing.T) {
+	t.Run("filters to only given options", func(t *testing.T) {
+		a, b, deleted := uuid.New(), uuid.New(), uuid.New()
+		results := Results{
+			PollID:     uuid.New(),
+			TotalVotes: 10,
+			Counts: map[uuid.UUID]int{
+				a:       4,
+				b:       3,
+				deleted: 3,
+			},
+		}
+		options := []Option{
+			{ID: a, Name: "A"},
+			{ID: b, Name: "B"},
+		}
+		filtered := results.Filtered(options)
+		assert.Equal(t, 2, len(filtered.Counts))
+		assert.Equal(t, 4, filtered.Counts[a])
+		assert.Equal(t, 3, filtered.Counts[b])
+		_, ok := filtered.Counts[deleted]
+		assert.False(t, ok)
+		assert.Equal(t, 7, filtered.TotalVotes)
+	})
+
+	t.Run("percentages from filtered results sum to 100", func(t *testing.T) {
+		a, b, deleted := uuid.New(), uuid.New(), uuid.New()
+		results := Results{
+			TotalVotes: 10,
+			Counts: map[uuid.UUID]int{
+				a:       4,
+				b:       3,
+				deleted: 3,
+			},
+		}
+		options := []Option{
+			{ID: a, Name: "A"},
+			{ID: b, Name: "B"},
+		}
+		pcts := results.Filtered(options).Percentages()
+		sum := 0
+		for _, p := range pcts {
+			sum += p
+		}
+		assert.Equal(t, 100, sum)
+	})
+}

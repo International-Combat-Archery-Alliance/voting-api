@@ -240,6 +240,7 @@ func (a *API) DeleteVotingV1PollsId(ctx context.Context, request DeleteVotingV1P
 }
 
 func pollToApiPoll(poll polls.Poll) Poll {
+	publicResultsLevel := PublicResultsLevel(poll.PublicResultsLevel)
 	return Poll{
 		Id:                &poll.ID,
 		Version:           &poll.Version,
@@ -248,6 +249,7 @@ func pollToApiPoll(poll polls.Poll) Poll {
 		StartTime:         poll.StartTime,
 		EndTime:           poll.EndTime,
 		ResultsVisibility: ResultsVisibility(poll.ResultsVisibility),
+		PublicResultsLevel: &publicResultsLevel,
 		VoteConfig: &VoteConfig{
 			MaxSelections:         &poll.VoteConfig.MaxSelections,
 			MaxSelectionsPerGroup: poll.VoteConfig.MaxSelectionsPerGroup,
@@ -305,6 +307,17 @@ func apiPollToPoll(poll Poll) (polls.Poll, error) {
 		return polls.Poll{}, fmt.Errorf("unknown results visibility %q", poll.ResultsVisibility)
 	}
 
+	publicResultsLevel := polls.PUBLIC_RESULTS_LEVEL_FULL
+	if poll.PublicResultsLevel != nil {
+		level := polls.PublicResultsLevel(*poll.PublicResultsLevel)
+		switch level {
+		case polls.PUBLIC_RESULTS_LEVEL_FULL, polls.PUBLIC_RESULTS_LEVEL_PERCENTAGES, polls.PUBLIC_RESULTS_LEVEL_RANKINGS, polls.PUBLIC_RESULTS_LEVEL_NONE:
+			publicResultsLevel = level
+		default:
+			return polls.Poll{}, fmt.Errorf("unknown public results level %q", *poll.PublicResultsLevel)
+		}
+	}
+
 	voteConfig := polls.VoteConfig{MaxSelections: 1}
 	if poll.VoteConfig != nil {
 		if poll.VoteConfig.MaxSelections != nil {
@@ -335,13 +348,14 @@ func apiPollToPoll(poll Poll) (polls.Poll, error) {
 	}
 
 	return polls.Poll{
-		ID:                id,
-		Name:              poll.Name,
-		Description:       poll.Description,
-		StartTime:         poll.StartTime,
-		EndTime:           poll.EndTime,
-		ResultsVisibility: visibility,
-		VoteConfig:        voteConfig,
+		ID:                 id,
+		Name:               poll.Name,
+		Description:        poll.Description,
+		StartTime:          poll.StartTime,
+		EndTime:            poll.EndTime,
+		ResultsVisibility:  visibility,
+		PublicResultsLevel: publicResultsLevel,
+		VoteConfig:         voteConfig,
 		Groups:            groups,
 		Options:           options,
 	}, nil

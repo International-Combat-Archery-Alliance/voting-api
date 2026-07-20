@@ -30,6 +30,7 @@ type pollDynamo struct {
 	StartTime             time.Time
 	EndTime               time.Time
 	ResultsVisibility     polls.ResultsVisibility
+	PublicResultsLevel    polls.PublicResultsLevel
 	MaxSelections         int
 	MaxSelectionsPerGroup *int
 	Groups                []groupDynamo
@@ -75,6 +76,7 @@ func newPollDynamo(poll polls.Poll) pollDynamo {
 		Name:                  poll.Name,
 		Description:           poll.Description,
 		ResultsVisibility:     poll.ResultsVisibility,
+		PublicResultsLevel:    poll.PublicResultsLevel,
 		MaxSelections:         poll.VoteConfig.MaxSelections,
 		MaxSelectionsPerGroup: poll.VoteConfig.MaxSelectionsPerGroup,
 		Groups: slices.Map(poll.Groups, func(g polls.Group) groupDynamo {
@@ -114,7 +116,8 @@ func pollFromPollDynamo(poll pollDynamo) polls.Poll {
 			MaxSelections:         poll.MaxSelections,
 			MaxSelectionsPerGroup: poll.MaxSelectionsPerGroup,
 		},
-		ResultsVisibility: poll.ResultsVisibility,
+		ResultsVisibility:  poll.ResultsVisibility,
+		PublicResultsLevel: poll.PublicResultsLevel,
 		Groups: slices.Map(poll.Groups, func(g groupDynamo) polls.Group {
 			return polls.Group{
 				ID:       uuid.MustParse(g.ID),
