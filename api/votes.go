@@ -220,7 +220,20 @@ func (a *API) GetVotingV1PollsIdResults(ctx context.Context, request GetVotingV1
 		}, nil
 	}
 
-	if !poll.CanViewResults(a.isAdmin(ctx), time.Now()) {
+	isAdmin := a.isAdmin(ctx)
+	if !poll.CanViewResults(isAdmin, time.Now()) {
+		return GetVotingV1PollsIdResults403JSONResponse{
+			Code:    AuthError,
+			Message: "Results are not available for this poll",
+		}, nil
+	}
+
+	level := poll.PublicResultsLevel
+	if isAdmin {
+		level = polls.PUBLIC_RESULTS_LEVEL_FULL
+	}
+
+	if !isAdmin && level == polls.PUBLIC_RESULTS_LEVEL_NONE {
 		return GetVotingV1PollsIdResults403JSONResponse{
 			Code:    AuthError,
 			Message: "Results are not available for this poll",
@@ -239,21 +252,78 @@ func (a *API) GetVotingV1PollsIdResults(ctx context.Context, request GetVotingV1
 		}, nil
 	}
 
-	// Only report counts for options that currently exist in the poll,
-	// stale counts of deleted options are filtered out
+	return buildResultsResponse(request.Id, results, poll.Options, level)
+}
+
+func buildResultsResponse(pollID uuid.UUID, results polls.Results, options []polls.Option, level polls.PublicResultsLevel) (GetVotingV1PollsIdResultsResponseObject, error) {
+	if level == "" {
+		level = polls.PUBLIC_RESULTS_LEVEL_FULL
+	}
+	switch level {
+	case polls.PUBLIC_RESULTS_LEVEL_FULL:
+		return buildFullResults(pollID, results, options), nil
+	case polls.PUBLIC_RESULTS_LEVEL_PERCENTAGES:
+		return buildPercentageResults(pollID, results, options), nil
+	case polls.PUBLIC_RESULTS_LEVEL_RANKINGS:
+		return buildRankingResults(pollID, results, options), nil
+	default:
+		return GetVotingV1PollsIdResults403JSONResponse{
+			Code:    AuthError,
+			Message: "Results are not available for this poll",
+		}, nil
+	}
+}
+
+func buildFullResults(pollID uuid.UUID, results polls.Results, options []polls.Option) GetVotingV1PollsIdResults200JSONResponse {
+	totalVotes := results.TotalVotes
 	optionResults := []OptionResult{}
-	for _, o := range poll.Options {
+	for _, o := range options {
+		count := results.Counts[o.ID]
 		optionResults = append(optionResults, OptionResult{
 			OptionId: o.ID,
-			Count:    results.Counts[o.ID],
+			Count:    &count,
 		})
 	}
-
 	return GetVotingV1PollsIdResults200JSONResponse{
-		PollId:     results.PollID,
-		TotalVotes: results.TotalVotes,
+		PollId:     openapi_types.UUID(pollID),
+		Level:      Full,
+		TotalVotes: &totalVotes,
 		Results:    optionResults,
-	}, nil
+	}
+}
+
+func buildPercentageResults(pollID uuid.UUID, results polls.Results, options []polls.Option) GetVotingV1PollsIdResults200JSONResponse {
+	pcts := results.Filtered(options).Percentages()
+	optionResults := []OptionResult{}
+	for _, o := range options {
+		pct := pcts[o.ID]
+		optionResults = append(optionResults, OptionResult{
+			OptionId:   o.ID,
+			Percentage: &pct,
+		})
+	}
+	return GetVotingV1PollsIdResults200JSONResponse{
+		PollId:  openapi_types.UUID(pollID),
+		Level:   Percentages,
+		Results: optionResults,
+	}
+}
+
+func buildRankingResults(pollID uuid.UUID, results polls.Results, options []polls.Option) GetVotingV1PollsIdResults200JSONResponse {
+	ranks := results.Filtered(options).Rankings()
+	optionResults := []OptionResult{}
+	for _, o := range options {
+		rank := ranks[o.ID]
+		optionResults = append(optionResults, OptionResult{
+			OptionId: o.ID,
+			Rank:     &rank,
+		})
+	}
+	return GetVotingV1PollsIdResults200JSONResponse{
+		PollId:  openapi_types.UUID(pollID),
+		Level:   Rankings,
+		Results: optionResults,
+	}
 }
 
 func openapiUUIDsToUUIDs(ids []openapi_types.UUID) []uuid.UUID {

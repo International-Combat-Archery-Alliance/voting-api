@@ -3,6 +3,8 @@ package polls
 import (
 	"context"
 	"fmt"
+	"math"
+	"sort"
 	"time"
 
 	"github.com/google/uuid"
@@ -25,6 +27,97 @@ type Results struct {
 	TotalVotes int
 	// Counts is the amount of votes per option ID
 	Counts map[uuid.UUID]int
+}
+
+// Percentages returns the percentage of votes each option received, using the
+// largest remainder method to ensure the results always sum to 100.
+// Options with zero total votes all get 0%.
+func (r Results) Percentages() map[uuid.UUID]int {
+	pcts := make(map[uuid.UUID]int, len(r.Counts))
+	if r.TotalVotes == 0 {
+		for id := range r.Counts {
+			pcts[id] = 0
+		}
+		return pcts
+	}
+
+	type entry struct {
+		id        uuid.UUID
+		exact     float64
+		remainder float64
+		allocated int
+	}
+	entries := make([]entry, 0, len(r.Counts))
+	allocatedTotal := 0
+	for id, count := range r.Counts {
+		exact := float64(count) / float64(r.TotalVotes) * 100.0
+		floored := int(math.Floor(exact))
+		entries = append(entries, entry{
+			id:        id,
+			exact:     exact,
+			remainder: exact - float64(floored),
+			allocated: floored,
+		})
+		allocatedTotal += floored
+	}
+
+	remaining := 100 - allocatedTotal
+	sort.Slice(entries, func(i, j int) bool {
+		if entries[i].remainder != entries[j].remainder {
+			return entries[i].remainder > entries[j].remainder
+		}
+		return entries[i].exact > entries[j].exact
+	})
+
+	for i := 0; i < remaining && i < len(entries); i++ {
+		entries[i].allocated++
+	}
+
+	for _, e := range entries {
+		pcts[e.id] = e.allocated
+	}
+	return pcts
+}
+
+// Filtered returns a copy of the results containing only counts for the given options,
+// with TotalVotes updated to the sum of those counts.
+func (r Results) Filtered(options []Option) Results {
+	filtered := Results{
+		PollID: r.PollID,
+		Counts: make(map[uuid.UUID]int, len(options)),
+	}
+	for _, o := range options {
+		count := r.Counts[o.ID]
+		filtered.Counts[o.ID] = count
+		filtered.TotalVotes += count
+	}
+	return filtered
+}
+
+// Rankings returns the 1-based rank of each option, with ties receiving the same rank
+// and the next rank skipping (e.g. 1, 2, 2, 4). Options are sorted by count descending.
+func (r Results) Rankings() map[uuid.UUID]int {
+	type entry struct {
+		id    uuid.UUID
+		count int
+	}
+	entries := make([]entry, 0, len(r.Counts))
+	for id, count := range r.Counts {
+		entries = append(entries, entry{id: id, count: count})
+	}
+	sort.Slice(entries, func(i, j int) bool {
+		return entries[i].count > entries[j].count
+	})
+
+	ranks := make(map[uuid.UUID]int, len(entries))
+	for i, e := range entries {
+		if i > 0 && e.count == entries[i-1].count {
+			ranks[e.id] = ranks[entries[i-1].id]
+		} else {
+			ranks[e.id] = i + 1
+		}
+	}
+	return ranks
 }
 
 type Repository interface {
