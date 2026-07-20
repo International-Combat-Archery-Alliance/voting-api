@@ -274,18 +274,9 @@ func (d *DB) GetPolls(ctx context.Context, limit int32, cursor *string) (polls.G
 		panic(fmt.Sprintf("failed to unmarshal dynamo polls: %s", err))
 	}
 
-	hasNextPage := len(dynamoItems) > int(limit) && len(result.LastEvaluatedKey) > 0
-
-	var newCursor *string
-	if hasNextPage {
-		// Can't use LastEvalKey directly because we grabbed an extra item to check for next page
-		lastItemGivenToUser := result.Items[len(result.Items)-2]
-		lastItemKey := getKeyFromItem(result.LastEvaluatedKey, lastItemGivenToUser)
-		c, err := lastEvalKeyToCursor(lastItemKey)
-		if err != nil {
-			panic(fmt.Sprintf("failed to make cursor from lastEvalKey: %s", err))
-		}
-		newCursor = &c
+	newCursor, err := nextCursor(result.Items, limit, result.LastEvaluatedKey)
+	if err != nil {
+		panic(fmt.Sprintf("failed to make cursor: %s", err))
 	}
 
 	return polls.GetPollsResponse{
@@ -293,7 +284,7 @@ func (d *DB) GetPolls(ctx context.Context, limit int32, cursor *string) (polls.G
 			return pollFromPollDynamo(v)
 		})[:min(int(limit), len(dynamoItems))],
 		Cursor:      newCursor,
-		HasNextPage: hasNextPage,
+		HasNextPage: newCursor != nil,
 	}, nil
 }
 

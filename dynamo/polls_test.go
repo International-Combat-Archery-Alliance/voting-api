@@ -158,6 +158,48 @@ func TestGetPolls(t *testing.T) {
 	})
 }
 
+func TestGetPollsExactLimitPlusOne(t *testing.T) {
+	resetTable(context.Background())
+
+	// Create exactly limit+1 polls. The first page fetches one extra item to
+	// detect the next page, so it must always come with a cursor pointing at
+	// the last returned poll. The second page must return just that extra
+	// item and terminate the listing.
+	limit := int32(5)
+	pollsToMake := []polls.Poll{}
+	for i := range int(limit + 1) {
+		poll := newTestPoll(t)
+		poll.Name = fmt.Sprintf("Poll %d", i)
+		poll.StartTime = poll.StartTime.Add(time.Duration(i) * 24 * time.Hour)
+		poll.EndTime = poll.EndTime.Add(time.Duration(i) * 24 * time.Hour)
+		pollsToMake = append(pollsToMake, poll)
+
+		require.NoError(t, db.CreatePoll(context.Background(), poll))
+	}
+
+	page1, err := db.GetPolls(context.Background(), limit, nil)
+	require.NoError(t, err)
+
+	assert.Len(t, page1.Data, int(limit))
+	assert.True(t, page1.HasNextPage)
+	require.NotNil(t, page1.Cursor)
+
+	page2, err := db.GetPolls(context.Background(), limit, page1.Cursor)
+	require.NoError(t, err)
+
+	assert.Len(t, page2.Data, 1)
+	// The extra item from page 1 is refetched as the last page's only item
+	assert.Equal(t, pollsToMake[0].ID, page2.Data[0].ID)
+	assert.False(t, page2.HasNextPage)
+	assert.Nil(t, page2.Cursor)
+
+	seen := map[uuid.UUID]struct{}{}
+	for _, p := range append(page1.Data, page2.Data...) {
+		seen[p.ID] = struct{}{}
+	}
+	assert.Len(t, seen, int(limit+1))
+}
+
 func TestUpdatePoll(t *testing.T) {
 	resetTable(context.Background())
 
