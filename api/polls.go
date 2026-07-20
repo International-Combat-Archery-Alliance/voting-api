@@ -370,8 +370,6 @@ func statusToApiStatus(status polls.Status) *PollStatus {
 		apiStatus = Active
 	case polls.STATUS_CLOSED:
 		apiStatus = Closed
-	default:
-		apiStatus = Upcoming
 	}
 	return &apiStatus
 }

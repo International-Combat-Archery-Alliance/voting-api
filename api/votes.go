@@ -87,7 +87,8 @@ func (a *API) PostVotingV1PollsIdVotes(ctx context.Context, request PostVotingV1
 		}, nil
 	}
 
-	err = poll.ValidateBallot(openapiUUIDsToUUIDs(optionIDs), time.Now())
+	now := time.Now()
+	err = poll.ValidateBallot(openapiUUIDsToUUIDs(optionIDs), now)
 	if err != nil {
 		span.RecordError(err)
 		logger.Warn("Invalid ballot", slog.String("error", err.Error()))
@@ -113,7 +114,6 @@ func (a *API) PostVotingV1PollsIdVotes(ctx context.Context, request PostVotingV1
 		}, nil
 	}
 
-	now := time.Now()
 	record = polls.VoteRecord{
 		PollID:         request.Id,
 		IdempotencyKey: request.Params.IdempotencyKey.String(),

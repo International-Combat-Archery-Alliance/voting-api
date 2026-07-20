@@ -186,7 +186,7 @@ func (d *DB) GetResults(ctx context.Context, pollID uuid.UUID) (polls.Results, e
 		return polls.Results{}, polls.NewFailedToFetchError("Failed to fetch results from dynamo", err)
 	}
 
-	// No votes have been cast yet
+	// Results item may not exist if the poll was created without one
 	if len(resp.Item) == 0 {
 		return polls.Results{
 			PollID: pollID,
