@@ -268,6 +268,7 @@ func TestPatchVotingV1PollsId(t *testing.T) {
 		body := newTestApiPoll()
 		resp, err := api.PatchVotingV1PollsId(context.Background(), PatchVotingV1PollsIdRequestObject{
 			Id:   openapi_types.UUID(pollID),
+			Params: PatchVotingV1PollsIdParams{Version: existing.Version},
 			Body: &body,
 		})
 
@@ -292,6 +293,7 @@ func TestPatchVotingV1PollsId(t *testing.T) {
 		body := newTestApiPoll()
 		resp, err := api.PatchVotingV1PollsId(context.Background(), PatchVotingV1PollsIdRequestObject{
 			Id:   openapi_types.UUID(uuid.New()),
+			Params: PatchVotingV1PollsIdParams{Version: 1},
 			Body: &body,
 		})
 
@@ -315,6 +317,7 @@ func TestPatchVotingV1PollsId(t *testing.T) {
 		body := newTestApiPoll()
 		resp, err := api.PatchVotingV1PollsId(context.Background(), PatchVotingV1PollsIdRequestObject{
 			Id:   openapi_types.UUID(uuid.New()),
+			Params: PatchVotingV1PollsIdParams{Version: 1},
 			Body: &body,
 		})
 

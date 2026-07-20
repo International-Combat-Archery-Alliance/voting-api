@@ -168,7 +168,7 @@ func (a *API) PatchVotingV1PollsId(ctx context.Context, request PatchVotingV1Pol
 		}, nil
 	}
 
-	updatedPoll, err := polls.UpdatePoll(ctx, a.db, request.Id, poll)
+	updatedPoll, err := polls.UpdatePoll(ctx, a.db, request.Id, poll, request.Params.Version)
 	if err != nil {
 		span.RecordError(err)
 		span.SetStatus(codes.Error, err.Error())

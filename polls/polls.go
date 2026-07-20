@@ -177,7 +177,7 @@ func ValidatePoll(poll Poll) error {
 	return nil
 }
 
-func UpdatePoll(ctx context.Context, repo Repository, id uuid.UUID, poll Poll) (Poll, error) {
+func UpdatePoll(ctx context.Context, repo Repository, id uuid.UUID, poll Poll, expectedVersion int) (Poll, error) {
 	ctx, span := tracer.Start(ctx, "UpdatePoll")
 	defer span.End()
 
@@ -188,6 +188,10 @@ func UpdatePoll(ctx context.Context, repo Repository, id uuid.UUID, poll Poll) (
 		span.RecordError(err)
 		span.SetStatus(codes.Error, err.Error())
 		return Poll{}, err
+	}
+
+	if existingPoll.Version != expectedVersion {
+		return Poll{}, NewVersionConflictError("poll was modified by another request, retry with the latest version", nil)
 	}
 
 	updatedPoll := poll

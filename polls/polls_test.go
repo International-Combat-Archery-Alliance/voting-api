@@ -217,11 +217,31 @@ func TestUpdatePoll(t *testing.T) {
 		updatedInput := newTestPoll()
 		updatedInput.Name = "New Name"
 
-		updated, err := UpdatePoll(context.Background(), repo, existing.ID, updatedInput)
+		updated, err := UpdatePoll(context.Background(), repo, existing.ID, updatedInput, existing.Version)
 		assert.NoError(t, err)
 		assert.Equal(t, existing.ID, updated.ID)
 		assert.Equal(t, existing.Version+1, updated.Version)
 		assert.Equal(t, "New Name", updated.Name)
+	})
+
+	t.Run("version mismatch returns conflict", func(t *testing.T) {
+		existing := newTestPoll()
+		existing.Version = 2
+
+		repo := &mockRepository{
+			GetPollFunc: func(ctx context.Context, id uuid.UUID) (Poll, error) {
+				return existing, nil
+			},
+			UpdatePollFunc: func(ctx context.Context, poll Poll) error {
+				return nil
+			},
+		}
+
+		_, err := UpdatePoll(context.Background(), repo, existing.ID, newTestPoll(), 1)
+
+		var pollsErr *Error
+		assert.ErrorAs(t, err, &pollsErr)
+		assert.Equal(t, REASON_VERSION_CONFLICT, pollsErr.Reason)
 	})
 
 	t.Run("invalid poll is rejected", func(t *testing.T) {
@@ -239,7 +259,7 @@ func TestUpdatePoll(t *testing.T) {
 		invalidInput := newTestPoll()
 		invalidInput.Options = nil
 
-		_, err := UpdatePoll(context.Background(), repo, existing.ID, invalidInput)
+		_, err := UpdatePoll(context.Background(), repo, existing.ID, invalidInput, existing.Version)
 		assertInvalidPoll(t, err)
 	})
 
@@ -253,7 +273,7 @@ func TestUpdatePoll(t *testing.T) {
 			},
 		}
 
-		_, err := UpdatePoll(context.Background(), repo, uuid.New(), newTestPoll())
+		_, err := UpdatePoll(context.Background(), repo, uuid.New(), newTestPoll(), 1)
 
 		var pollsErr *Error
 		assert.ErrorAs(t, err, &pollsErr)
@@ -270,7 +290,7 @@ func TestUpdatePoll(t *testing.T) {
 			},
 		}
 
-		_, err := UpdatePoll(context.Background(), repo, uuid.New(), newTestPoll())
+		_, err := UpdatePoll(context.Background(), repo, uuid.New(), newTestPoll(), 1)
 
 		var pollsErr *Error
 		assert.ErrorAs(t, err, &pollsErr)

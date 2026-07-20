@@ -159,6 +159,13 @@ paths:
             type: string
             format: uuid
             example: 00000000-0000-0000-0000-000000000000
+        - name: version
+          in: query
+          description: The version of the poll you last read, used for optimistic locking. The update will only succeed if this matches the current version on the server.
+          required: true
+          schema:
+            type: integer
+            example: 1
       requestBody:
         description: Poll to be updated
         required: true
