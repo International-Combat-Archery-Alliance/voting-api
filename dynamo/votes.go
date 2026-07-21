@@ -68,7 +68,8 @@ func (d *DB) GetVoteRecord(ctx context.Context, pollID uuid.UUID, idempotencyKey
 	defer cancel()
 
 	resp, err := d.dynamoClient.GetItem(ctx, &dynamodb.GetItemInput{
-		TableName: aws.String(d.tableName),
+		TableName:      aws.String(d.tableName),
+		ConsistentRead: aws.Bool(true),
 		Key: map[string]types.AttributeValue{
 			"PK": &types.AttributeValueMemberS{Value: pollPK(pollID)},
 			"SK": &types.AttributeValueMemberS{Value: voteRecordSK(idempotencyKey)},
@@ -173,7 +174,8 @@ func (d *DB) GetResults(ctx context.Context, pollID uuid.UUID) (polls.Results, e
 	defer cancel()
 
 	resp, err := d.dynamoClient.GetItem(ctx, &dynamodb.GetItemInput{
-		TableName: aws.String(d.tableName),
+		TableName:      aws.String(d.tableName),
+		ConsistentRead: aws.Bool(true),
 		Key: map[string]types.AttributeValue{
 			"PK": &types.AttributeValueMemberS{Value: pollPK(pollID)},
 			"SK": &types.AttributeValueMemberS{Value: resultsSK},
