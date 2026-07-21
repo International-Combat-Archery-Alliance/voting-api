@@ -7,12 +7,14 @@ import (
 	"log/slog"
 	"net"
 	"net/http"
+	"sync"
 	"time"
 
 	"github.com/International-Combat-Archery-Alliance/auth/token"
 	"github.com/International-Combat-Archery-Alliance/captcha"
 	"github.com/International-Combat-Archery-Alliance/middleware"
 	"github.com/International-Combat-Archery-Alliance/voting-api/polls"
+	"github.com/google/uuid"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/trace"
 )
@@ -37,6 +39,8 @@ type API struct {
 	tokenService     *token.TokenService
 	captchaValidator captcha.Validator
 	flushTraces      func(context.Context) error
+
+	pollCache sync.Map
 }
 
 var _ StrictServerInterface = (*API)(nil)
@@ -124,4 +128,16 @@ func (a *API) isAdmin(ctx context.Context) bool {
 		return false
 	}
 	return jwt.IsAdmin()
+}
+
+func (a *API) getCachedPoll(ctx context.Context, id uuid.UUID) (polls.Poll, error) {
+	if cached, ok := a.pollCache.Load(id); ok {
+		return cached.(polls.Poll), nil
+	}
+	poll, err := a.db.GetPoll(ctx, id)
+	if err != nil {
+		return polls.Poll{}, err
+	}
+	a.pollCache.Store(id, poll)
+	return poll, nil
 }

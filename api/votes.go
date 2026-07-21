@@ -68,7 +68,7 @@ func (a *API) PostVotingV1PollsIdVotes(ctx context.Context, request PostVotingV1
 		}, nil
 	}
 
-	poll, err := a.db.GetPoll(ctx, request.Id)
+	poll, err := a.getCachedPoll(ctx, request.Id)
 	if err != nil {
 		span.RecordError(err)
 		span.SetStatus(codes.Error, err.Error())
@@ -200,7 +200,7 @@ func (a *API) GetVotingV1PollsIdResults(ctx context.Context, request GetVotingV1
 	ctx, cancel := context.WithTimeout(ctx, 2*time.Second)
 	defer cancel()
 
-	poll, err := a.db.GetPoll(ctx, request.Id)
+	poll, err := a.getCachedPoll(ctx, request.Id)
 	if err != nil {
 		span.RecordError(err)
 		span.SetStatus(codes.Error, err.Error())
