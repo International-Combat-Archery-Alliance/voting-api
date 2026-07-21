@@ -7,3 +7,9 @@ s3_prefix = "voting-api"
 region = "us-east-1"
 confirm_changeset = true
 capabilities = "CAPABILITY_IAM"
+disable_rollback = true
+parameter_overrides = "architecture=\"x86_64\""
+image_repositories = ["ICAAVoting=197461532156.dkr.ecr.us-east-1.amazonaws.com/votingapiec26d099/icaavoting20834c33repo"]
+
+[default.global.parameters]
+region = "us-east-1"
