@@ -333,62 +333,30 @@ func (d *DB) DeletePoll(ctx context.Context, id uuid.UUID) error {
 	existsExpr := exprMustBuild(expression.NewBuilder().
 		WithCondition(expression.Name("PK").AttributeExists()))
 
-	keyCond := expression.Key("PK").Equal(expression.Value(pollPK(id))).
-		And(expression.Key("SK").BeginsWith("IDEMPOTENCY#"))
-
-	keyExpr, err := expression.NewBuilder().WithKeyCondition(keyCond).Build()
-	if err != nil {
-		panic(fmt.Sprintf("failed to build dynamo key expression: %s", err))
-	}
-
-	idempotencyResult, err := d.dynamoClient.Query(ctx, &dynamodb.QueryInput{
-		TableName:                 aws.String(d.tableName),
-		KeyConditionExpression:    keyExpr.KeyCondition(),
-		ExpressionAttributeNames:  keyExpr.Names(),
-		ExpressionAttributeValues: keyExpr.Values(),
-	})
-	if err != nil {
-		return polls.NewFailedToFetchError("Failed to query idempotency records for deletion", err)
-	}
-
-	transactItems := []types.TransactWriteItem{
-		{
-			Delete: &types.Delete{
-				TableName: aws.String(d.tableName),
-				Key: map[string]types.AttributeValue{
-					"PK": &types.AttributeValueMemberS{Value: pollPK(id)},
-					"SK": &types.AttributeValueMemberS{Value: pollMetaSK},
+	_, err := d.dynamoClient.TransactWriteItems(ctx, &dynamodb.TransactWriteItemsInput{
+		TransactItems: []types.TransactWriteItem{
+			{
+				Delete: &types.Delete{
+					TableName: aws.String(d.tableName),
+					Key: map[string]types.AttributeValue{
+						"PK": &types.AttributeValueMemberS{Value: pollPK(id)},
+						"SK": &types.AttributeValueMemberS{Value: pollMetaSK},
+					},
+					ConditionExpression:       existsExpr.Condition(),
+					ExpressionAttributeNames:  existsExpr.Names(),
+					ExpressionAttributeValues: existsExpr.Values(),
 				},
-				ConditionExpression:       existsExpr.Condition(),
-				ExpressionAttributeNames:  existsExpr.Names(),
-				ExpressionAttributeValues: existsExpr.Values(),
 			},
-		},
-		{
-			Delete: &types.Delete{
-				TableName: aws.String(d.tableName),
-				Key: map[string]types.AttributeValue{
-					"PK": &types.AttributeValueMemberS{Value: pollPK(id)},
-					"SK": &types.AttributeValueMemberS{Value: resultsSK},
+			{
+				Delete: &types.Delete{
+					TableName: aws.String(d.tableName),
+					Key: map[string]types.AttributeValue{
+						"PK": &types.AttributeValueMemberS{Value: pollPK(id)},
+						"SK": &types.AttributeValueMemberS{Value: resultsSK},
+					},
 				},
 			},
 		},
-	}
-
-	for _, item := range idempotencyResult.Items {
-		transactItems = append(transactItems, types.TransactWriteItem{
-			Delete: &types.Delete{
-				TableName: aws.String(d.tableName),
-				Key: map[string]types.AttributeValue{
-					"PK": item["PK"],
-					"SK": item["SK"],
-				},
-			},
-		})
-	}
-
-	_, err = d.dynamoClient.TransactWriteItems(ctx, &dynamodb.TransactWriteItemsInput{
-		TransactItems: transactItems,
 	})
 	if err != nil {
 		var txnCanceledErr *types.TransactionCanceledException
