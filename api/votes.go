@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/International-Combat-Archery-Alliance/voting-api/polls"
+	"github.com/International-Combat-Archery-Alliance/middleware"
 	"github.com/google/uuid"
 	openapi_types "github.com/oapi-codegen/runtime/types"
 	"go.opentelemetry.io/otel/codes"
@@ -49,7 +50,8 @@ func (a *API) PostVotingV1PollsIdVotes(ctx context.Context, request PostVotingV1
 		}, nil
 	}
 
-	validatedData, err := a.captchaValidator.Validate(ctx, request.Params.CfTurnstileResponse, "")
+	clientIP, _ := middleware.GetClientIPFromCtx(ctx)
+	validatedData, err := a.captchaValidator.Validate(ctx, request.Params.CfTurnstileResponse, clientIP)
 	if err != nil {
 		span.RecordError(err)
 		logger.Warn("Invalid captcha", slog.String("error", err.Error()))
