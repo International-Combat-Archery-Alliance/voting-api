@@ -102,39 +102,56 @@ func (d *DB) RecordVote(ctx context.Context, record polls.VoteRecord) error {
 		return polls.NewFailedToTranslateToDBModelError("Failed to convert VoteRecord to voteRecordDynamo", err)
 	}
 
-	_, err = d.dynamoClient.TransactWriteItems(ctx, &dynamodb.TransactWriteItemsInput{
-		TransactItems: []types.TransactWriteItem{
-			{
-				Put: &types.Put{
-					TableName:           aws.String(d.tableName),
-					Item:                recordItem,
-					ConditionExpression: aws.String("attribute_not_exists(PK)"),
-				},
-			},
-			{
-				Update: &types.Update{
-					TableName: aws.String(d.tableName),
-					Key: map[string]types.AttributeValue{
-						"PK": &types.AttributeValueMemberS{Value: pollPK(record.PollID)},
-						"SK": &types.AttributeValueMemberS{Value: resultsSK},
-					},
-					UpdateExpression:          aws.String(incrementResultsExpression(record.OptionIDs)),
-					ExpressionAttributeNames:  incrementResultsNames(record.OptionIDs),
-					ExpressionAttributeValues: incrementResultsValues(),
-				},
-			},
-		},
+	_, err = d.dynamoClient.PutItem(ctx, &dynamodb.PutItemInput{
+		TableName:           aws.String(d.tableName),
+		Item:                recordItem,
+		ConditionExpression: aws.String("attribute_not_exists(PK)"),
 	})
 	if err != nil {
-		var txnCanceledErr *types.TransactionCanceledException
-		if errors.As(err, &txnCanceledErr) && transactionFailedDueToCondition(txnCanceledErr) {
+		var condCheckFailed *types.ConditionalCheckFailedException
+		if errors.As(err, &condCheckFailed) {
 			return polls.NewVoteAlreadyRecordedError(fmt.Sprintf("A vote with key %q was already recorded", record.IdempotencyKey), err)
-		} else if errors.Is(err, context.DeadlineExceeded) {
-			return polls.NewTimeoutError("RecordVote timed out")
 		}
-		return polls.NewFailedToWriteError("Failed TransactWriteItems call", err)
+		if errors.Is(err, context.DeadlineExceeded) {
+			return polls.NewTimeoutError("RecordVote timed out writing idempotency record")
+		}
+		return polls.NewFailedToWriteError("Failed to write idempotency record", err)
 	}
 
+	if err := d.incrementResults(ctx, record); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (d *DB) incrementResults(ctx context.Context, record polls.VoteRecord) error {
+	for i := 0; i < 3; i++ {
+		_, err := d.dynamoClient.UpdateItem(ctx, &dynamodb.UpdateItemInput{
+			TableName: aws.String(d.tableName),
+			Key: map[string]types.AttributeValue{
+				"PK": &types.AttributeValueMemberS{Value: pollPK(record.PollID)},
+				"SK": &types.AttributeValueMemberS{Value: resultsSK},
+			},
+			UpdateExpression:          aws.String(incrementResultsExpression(record.OptionIDs)),
+			ExpressionAttributeNames:  incrementResultsNames(record.OptionIDs),
+			ExpressionAttributeValues: incrementResultsValues(),
+		})
+		if err == nil {
+			return nil
+		}
+		if errors.Is(err, context.DeadlineExceeded) {
+			return polls.NewTimeoutError("RecordVote timed out incrementing results")
+		}
+		if i == 2 {
+			return polls.NewFailedToWriteError("Failed to increment results after 3 retries", err)
+		}
+		select {
+		case <-ctx.Done():
+			return polls.NewTimeoutError("RecordVote context expired during retry")
+		case <-time.After(10 * time.Millisecond):
+		}
+	}
 	return nil
 }
 
