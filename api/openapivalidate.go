@@ -72,7 +72,7 @@ func (a *API) openapiValidateMiddleware(swagger *openapi3.T) middleware.Middlewa
 					return fmt.Errorf("unsupported security scheme: %s", ai.SecuritySchemeName)
 				}
 
-				claims, err := a.tokenService.ValidateAccessToken(tokenString)
+				claims, err := a.validator.ValidateUserAccessToken(ctx, tokenString)
 				if err != nil {
 					logger.Error("invalid jwt", slog.String("error", err.Error()))
 					return fmt.Errorf("jwt is not valid")

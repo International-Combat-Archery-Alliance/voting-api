@@ -80,15 +80,15 @@ func main() {
 		os.Exit(1)
 	}
 
-	tokenService := token.NewTokenService(
-		cfg.JWTSigningKeys[cfg.JWTCurrentKeyID],
-		token.WithSigningKeys(cfg.JWTSigningKeys, cfg.JWTCurrentKeyID),
-	)
+	validator := token.NewKeyCache(cfg.JWKSURL)
+	if err := validator.StartupFetch(ctx); err != nil {
+		logger.Warn("jwks startup fetch failed (non-fatal); user token verification will fail closed until keys are fetched", "error", err)
+	}
 
 	httpClient := &http.Client{Timeout: 5 * time.Second}
 	cfTurnstileValidator := cfturnstile.NewValidator(httpClient, cfg.TurnstileSecretKey)
 
-	votingAPI := api.NewAPI(db, logger, env, tokenService, cfTurnstileValidator, flushTraces)
+	votingAPI := api.NewAPI(db, logger, env, validator, cfTurnstileValidator, flushTraces)
 
 	// End startup span after initialization completes
 	span.End()

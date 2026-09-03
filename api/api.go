@@ -30,13 +30,18 @@ type DB interface {
 	polls.Repository
 }
 
+// UserTokenValidator verifies user access tokens against the login JWKS endpoint.
+type UserTokenValidator interface {
+	ValidateUserAccessToken(ctx context.Context, tokenString string) (*token.ICAAClaims, error)
+}
+
 type API struct {
 	db     DB
 	logger *slog.Logger
 	env    Environment
 	tracer trace.Tracer
 
-	tokenService     *token.TokenService
+	validator        UserTokenValidator
 	captchaValidator captcha.Validator
 	flushTraces      func(context.Context) error
 
@@ -49,7 +54,7 @@ func NewAPI(
 	db DB,
 	logger *slog.Logger,
 	env Environment,
-	tokenService *token.TokenService,
+	validator UserTokenValidator,
 	captchaValidator captcha.Validator,
 	flushTraces func(context.Context) error,
 ) *API {
@@ -58,7 +63,7 @@ func NewAPI(
 		logger:           logger,
 		env:              env,
 		tracer:           otel.Tracer("github.com/International-Combat-Archery-Alliance/voting-api/api"),
-		tokenService:     tokenService,
+		validator:        validator,
 		captchaValidator: captchaValidator,
 		flushTraces:      flushTraces,
 	}
