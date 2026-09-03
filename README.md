@@ -47,7 +47,7 @@ See `spec/api.yaml` for the full API specification.
 
 The local API will be available at `http://localhost:3006`. Swagger UI is at `http://localhost:3006/voting`.
 
-Local mode uses Cloudflare's always-pass Turnstile test keys and a local JWT signing key, so votes and admin endpoints work out of the box.
+Local mode uses Cloudflare's always-pass Turnstile test keys, so votes and admin endpoints work out of the box. User tokens are verified against the login JWKS endpoint.
 
 ## Building
 
@@ -83,10 +83,10 @@ sam deploy --guided
 | `HOST`                       | Server host                             | `0.0.0.0`   |
 | `PORT`                       | Server port                             | `8080`      |
 | `OTEL_EXPORTER_OTLP_ENDPOINT`| OTLP traces endpoint                    | New Relic   |
-| `JWT_SIGNING_KEY`            | Local-only JWT signing key              | dev default |
+| `LOGIN_JWKS_URL`             | Override for the login JWKS endpoint    | env default |
 | `NEW_RELIC_LICENSE_KEY`      | Local-only New Relic license key        | unset       |
 
-In production, secrets are fetched from SSM Parameter Store (`/jwtSigningKeys`, `/cfTurnstileSecretKey`, `/newrelic-license-key`).
+In production, secrets are fetched from SSM Parameter Store (`/cfTurnstileSecretKey`, `/newrelic-license-key`). User tokens are verified via the login JWKS endpoint over HTTP.
 
 ## License
 

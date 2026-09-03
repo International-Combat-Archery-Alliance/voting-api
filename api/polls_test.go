@@ -39,7 +39,7 @@ func TestGetVotingV1Polls(t *testing.T) {
 				}, nil
 			},
 		}
-		api := NewAPI(mock, noopLogger, LOCAL, newTestTokenService(), &mockCaptchaValidator{}, func(context.Context) error { return nil })
+		api := NewAPI(mock, noopLogger, LOCAL, newTestTokenValidator(), &mockCaptchaValidator{}, func(context.Context) error { return nil })
 
 		resp, err := api.GetVotingV1Polls(context.Background(), GetVotingV1PollsRequestObject{
 			Params: GetVotingV1PollsParams{
@@ -59,7 +59,7 @@ func TestGetVotingV1Polls(t *testing.T) {
 				return polls.GetPollsResponse{}, polls.NewInvalidCursorError("invalid cursor", errors.New("invalid cursor"))
 			},
 		}
-		api := NewAPI(mock, noopLogger, LOCAL, newTestTokenService(), &mockCaptchaValidator{}, func(context.Context) error { return nil })
+		api := NewAPI(mock, noopLogger, LOCAL, newTestTokenValidator(), &mockCaptchaValidator{}, func(context.Context) error { return nil })
 
 		resp, err := api.GetVotingV1Polls(context.Background(), GetVotingV1PollsRequestObject{
 			Params: GetVotingV1PollsParams{
@@ -80,7 +80,7 @@ func TestGetVotingV1Polls(t *testing.T) {
 				return polls.GetPollsResponse{}, errors.New("boom")
 			},
 		}
-		api := NewAPI(mock, noopLogger, LOCAL, newTestTokenService(), &mockCaptchaValidator{}, func(context.Context) error { return nil })
+		api := NewAPI(mock, noopLogger, LOCAL, newTestTokenValidator(), &mockCaptchaValidator{}, func(context.Context) error { return nil })
 
 		resp, err := api.GetVotingV1Polls(context.Background(), GetVotingV1PollsRequestObject{
 			Params: GetVotingV1PollsParams{
@@ -102,7 +102,7 @@ func TestPostVotingV1Polls(t *testing.T) {
 				return nil
 			},
 		}
-		api := NewAPI(mock, noopLogger, LOCAL, newTestTokenService(), &mockCaptchaValidator{}, func(context.Context) error { return nil })
+		api := NewAPI(mock, noopLogger, LOCAL, newTestTokenValidator(), &mockCaptchaValidator{}, func(context.Context) error { return nil })
 
 		body := newTestApiPoll()
 		resp, err := api.PostVotingV1Polls(context.Background(), PostVotingV1PollsRequestObject{Body: &body})
@@ -128,7 +128,7 @@ func TestPostVotingV1Polls(t *testing.T) {
 				return nil
 			},
 		}
-		api := NewAPI(mock, noopLogger, LOCAL, newTestTokenService(), &mockCaptchaValidator{}, func(context.Context) error { return nil })
+		api := NewAPI(mock, noopLogger, LOCAL, newTestTokenValidator(), &mockCaptchaValidator{}, func(context.Context) error { return nil })
 
 		body := newTestApiPoll()
 		body.Groups = &[]PollGroup{
@@ -172,7 +172,7 @@ func TestPostVotingV1Polls(t *testing.T) {
 				return nil
 			},
 		}
-		api := NewAPI(mock, noopLogger, LOCAL, newTestTokenService(), &mockCaptchaValidator{}, func(context.Context) error { return nil })
+		api := NewAPI(mock, noopLogger, LOCAL, newTestTokenValidator(), &mockCaptchaValidator{}, func(context.Context) error { return nil })
 
 		body := newTestApiPoll()
 		body.EndTime = body.StartTime // end time must be after start time
@@ -190,7 +190,7 @@ func TestPostVotingV1Polls(t *testing.T) {
 				return nil
 			},
 		}
-		api := NewAPI(mock, noopLogger, LOCAL, newTestTokenService(), &mockCaptchaValidator{}, func(context.Context) error { return nil })
+		api := NewAPI(mock, noopLogger, LOCAL, newTestTokenValidator(), &mockCaptchaValidator{}, func(context.Context) error { return nil })
 
 		body := newTestApiPoll()
 		body.ResultsVisibility = "Bogus"
@@ -211,7 +211,7 @@ func TestGetVotingV1PollsId(t *testing.T) {
 				return polls.Poll{ID: pollID, Name: "Poll", StartTime: time.Now(), EndTime: time.Now().Add(time.Hour)}, nil
 			},
 		}
-		api := NewAPI(mock, noopLogger, LOCAL, newTestTokenService(), &mockCaptchaValidator{}, func(context.Context) error { return nil })
+		api := NewAPI(mock, noopLogger, LOCAL, newTestTokenValidator(), &mockCaptchaValidator{}, func(context.Context) error { return nil })
 
 		resp, err := api.GetVotingV1PollsId(context.Background(), GetVotingV1PollsIdRequestObject{
 			Id: openapi_types.UUID(pollID),
@@ -229,7 +229,7 @@ func TestGetVotingV1PollsId(t *testing.T) {
 				return polls.Poll{}, polls.NewPollDoesNotExistError("not found", nil)
 			},
 		}
-		api := NewAPI(mock, noopLogger, LOCAL, newTestTokenService(), &mockCaptchaValidator{}, func(context.Context) error { return nil })
+		api := NewAPI(mock, noopLogger, LOCAL, newTestTokenValidator(), &mockCaptchaValidator{}, func(context.Context) error { return nil })
 
 		resp, err := api.GetVotingV1PollsId(context.Background(), GetVotingV1PollsIdRequestObject{
 			Id: openapi_types.UUID(uuid.New()),
@@ -263,7 +263,7 @@ func TestPatchVotingV1PollsId(t *testing.T) {
 				return nil
 			},
 		}
-		api := NewAPI(mock, noopLogger, LOCAL, newTestTokenService(), &mockCaptchaValidator{}, func(context.Context) error { return nil })
+		api := NewAPI(mock, noopLogger, LOCAL, newTestTokenValidator(), &mockCaptchaValidator{}, func(context.Context) error { return nil })
 
 		body := newTestApiPoll()
 		resp, err := api.PatchVotingV1PollsId(context.Background(), PatchVotingV1PollsIdRequestObject{
@@ -288,7 +288,7 @@ func TestPatchVotingV1PollsId(t *testing.T) {
 				return nil
 			},
 		}
-		api := NewAPI(mock, noopLogger, LOCAL, newTestTokenService(), &mockCaptchaValidator{}, func(context.Context) error { return nil })
+		api := NewAPI(mock, noopLogger, LOCAL, newTestTokenValidator(), &mockCaptchaValidator{}, func(context.Context) error { return nil })
 
 		body := newTestApiPoll()
 		resp, err := api.PatchVotingV1PollsId(context.Background(), PatchVotingV1PollsIdRequestObject{
@@ -312,7 +312,7 @@ func TestPatchVotingV1PollsId(t *testing.T) {
 				return polls.NewVersionConflictError("conflict", errors.New("conflict"))
 			},
 		}
-		api := NewAPI(mock, noopLogger, LOCAL, newTestTokenService(), &mockCaptchaValidator{}, func(context.Context) error { return nil })
+		api := NewAPI(mock, noopLogger, LOCAL, newTestTokenValidator(), &mockCaptchaValidator{}, func(context.Context) error { return nil })
 
 		body := newTestApiPoll()
 		resp, err := api.PatchVotingV1PollsId(context.Background(), PatchVotingV1PollsIdRequestObject{
@@ -335,7 +335,7 @@ func TestDeleteVotingV1PollsId(t *testing.T) {
 				return nil
 			},
 		}
-		api := NewAPI(mock, noopLogger, LOCAL, newTestTokenService(), &mockCaptchaValidator{}, func(context.Context) error { return nil })
+		api := NewAPI(mock, noopLogger, LOCAL, newTestTokenValidator(), &mockCaptchaValidator{}, func(context.Context) error { return nil })
 
 		resp, err := api.DeleteVotingV1PollsId(context.Background(), DeleteVotingV1PollsIdRequestObject{
 			Id: openapi_types.UUID(uuid.New()),
@@ -352,7 +352,7 @@ func TestDeleteVotingV1PollsId(t *testing.T) {
 				return polls.NewPollDoesNotExistError("not found", nil)
 			},
 		}
-		api := NewAPI(mock, noopLogger, LOCAL, newTestTokenService(), &mockCaptchaValidator{}, func(context.Context) error { return nil })
+		api := NewAPI(mock, noopLogger, LOCAL, newTestTokenValidator(), &mockCaptchaValidator{}, func(context.Context) error { return nil })
 
 		resp, err := api.DeleteVotingV1PollsId(context.Background(), DeleteVotingV1PollsIdRequestObject{
 			Id: openapi_types.UUID(uuid.New()),

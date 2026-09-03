@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"crypto/rsa"
 	"log/slog"
 	"time"
 
@@ -14,13 +15,30 @@ import (
 
 var noopLogger = slog.New(slog.DiscardHandler)
 
-// newTestTokenService creates a token service for testing with a test signing key
-func newTestTokenService() *token.TokenService {
-	testKey := token.SigningKey{
-		ID:  "test",
-		Key: []byte("test-signing-key-minimum-32-characters-long"),
+var (
+	testUserSigner    *token.UserTokenSigner
+	testUserValidator *token.KeyCache
+)
+
+func init() {
+	priv, pub, err := token.GenerateUserDevKeypair()
+	if err != nil {
+		panic(err)
 	}
-	return token.NewTokenService(testKey)
+	testUserSigner, err = token.NewUserTokenSigner(
+		map[string]*rsa.PrivateKey{"user-test": priv}, "user-test")
+	if err != nil {
+		panic(err)
+	}
+	testUserValidator = token.NewKeyCache("",
+		token.WithLocalMode(),
+		token.WithDevKeys(map[string]*rsa.PublicKey{"user-test": pub}),
+	)
+}
+
+// newTestTokenValidator returns a validator sharing the test signer's keys.
+func newTestTokenValidator() *token.KeyCache {
+	return testUserValidator
 }
 
 // mockAuthToken implements auth.AuthToken for testing
