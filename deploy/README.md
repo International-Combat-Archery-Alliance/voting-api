@@ -50,7 +50,10 @@ aws iam put-role-policy --role-name voting-api-github-deploy \
   for SAM's HttpApi + mapping management to be practical)
 - IAM role management + `PassRole` on `role/voting-api-*` (SAM creates
   the Lambda execution role; `CAPABILITY_IAM` is already in `samconfig.toml`)
+- DynamoDB describe/update on `table/voting-api` (plus `index/*`) — the table is
+  stack-owned and its ARN is in Outputs, so CloudFormation needs read access on
+  every update; update/tag actions cover future table edits (no create/delete)
 - CloudWatch Logs on `/aws/lambda/voting-api-*`
 
-No DynamoDB, SSM, or secret access: deploys only ship code, runtime config
+No SSM or secret access: deploys only ship code, runtime config
 comes from SSM at Lambda startup via the execution role in `template.yml`.
