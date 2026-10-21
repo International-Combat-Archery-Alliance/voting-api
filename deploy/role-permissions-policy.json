@@ -108,6 +108,24 @@
       "Resource": "arn:aws:iam::197461532156:role/voting-api-*"
     },
     {
+      "Sid": "DynamoDBTable",
+      "Effect": "Allow",
+      "Action": [
+        "dynamodb:DescribeTable",
+        "dynamodb:DescribeTimeToLive",
+        "dynamodb:DescribeContinuousBackups",
+        "dynamodb:ListTagsOfResource",
+        "dynamodb:UpdateTable",
+        "dynamodb:UpdateTimeToLive",
+        "dynamodb:TagResource",
+        "dynamodb:UntagResource"
+      ],
+      "Resource": [
+        "arn:aws:dynamodb:us-east-1:197461532156:table/voting-api",
+        "arn:aws:dynamodb:us-east-1:197461532156:table/voting-api/index/*"
+      ]
+    },
+    {
       "Sid": "LogGroupReads",
       "Effect": "Allow",
       "Action": [
