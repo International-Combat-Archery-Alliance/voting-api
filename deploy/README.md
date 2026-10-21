@@ -41,6 +41,9 @@ aws iam put-role-policy --role-name voting-api-github-deploy \
   packaged template there on every deploy, even for image-based Lambdas)
 - ECR image push on the existing `votingapiec26d099/icaavoting20834c33repo` repo
   (`ecr:GetAuthorizationToken` on `*` is required by AWS, it can't be scoped)
+- ECR Public auth (`ecr-public:GetAuthorizationToken` + `sts:GetServiceBearerToken`
+  on `*`) so `sam build` can pull the public Lambda adapter base image without
+  hitting anonymous rate limits
 - Lambda `*` on `function:voting-api-*` (SAM names functions
   `<stack>-<resource>-<hash>`)
 - `apigatewayv2:*` (API Gateway has no resource-level scoping granular enough
