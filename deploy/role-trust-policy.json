@@ -12,7 +12,10 @@
           "token.actions.githubusercontent.com:aud": "sts.amazonaws.com"
         },
         "StringLike": {
-          "token.actions.githubusercontent.com:sub": "repo:International-Combat-Archery-Alliance/voting-api:ref:refs/heads/main"
+          "token.actions.githubusercontent.com:sub": [
+            "repo:International-Combat-Archery-Alliance/voting-api:ref:refs/heads/main",
+            "repo:International-Combat-Archery-Alliance@226755426/voting-api@1305870321:ref:refs/heads/main"
+          ]
         }
       }
     }
