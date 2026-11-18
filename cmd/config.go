@@ -152,7 +152,7 @@ func jwksURLForEnv(env api.Environment) string {
 		return u
 	}
 	if env == api.LOCAL {
-		return "http://172.17.0.1:3001/login/.well-known/jwks.json"
+		return "http://host.docker.internal:3001/login/.well-known/jwks.json"
 	}
 	return "https://api.icaa.world/login/.well-known/jwks.json"
 }
