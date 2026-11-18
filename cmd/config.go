@@ -3,10 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
-	"net"
 	"os"
-	"strconv"
-	"strings"
 	"sync"
 
 	"github.com/International-Combat-Archery-Alliance/telemetry"
@@ -155,46 +152,9 @@ func jwksURLForEnv(env api.Environment) string {
 		return u
 	}
 	if env == api.LOCAL {
-		return "http://" + localJWKSHost() + ":3001/login/.well-known/jwks.json"
+		return "http://172.17.0.1:3001/login/.well-known/jwks.json"
 	}
 	return "https://api.icaa.world/login/.well-known/jwks.json"
-}
-
-// localJWKSHost returns the host serving login during local development.
-// `go test` and other host processes reach it on localhost, but `sam local`
-// runs the function inside a Docker container where localhost is the
-// container itself. There the host is reachable as host.docker.internal
-// (Docker Desktop) or through the default gateway (Linux Docker, e.g.
-// 172.17.0.1).
-func localJWKSHost() string {
-	if _, err := os.Stat("/.dockerenv"); err != nil {
-		return "localhost"
-	}
-	if _, err := net.LookupHost("host.docker.internal"); err == nil {
-		return "host.docker.internal"
-	}
-	return defaultRouteGateway()
-}
-
-// defaultRouteGateway returns the IPv4 default gateway from /proc/net/route,
-// falling back to Docker's default bridge gateway.
-func defaultRouteGateway() string {
-	data, err := os.ReadFile("/proc/net/route")
-	if err != nil {
-		return "172.17.0.1"
-	}
-	for _, line := range strings.Split(string(data), "\n") {
-		fields := strings.Fields(line)
-		if len(fields) < 3 || fields[1] != "00000000" || fields[2] == "00000000" {
-			continue
-		}
-		gw, err := strconv.ParseUint(fields[2], 16, 32)
-		if err != nil {
-			continue
-		}
-		return net.IPv4(byte(gw), byte(gw>>8), byte(gw>>16), byte(gw>>24)).String()
-	}
-	return "172.17.0.1"
 }
 
 // getNewRelicLicenseKey retrieves the New Relic license key.
